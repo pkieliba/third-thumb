@@ -1,57 +1,44 @@
 #!/usr/bin/python
 
 """
-Check for motion outliers
+Extract principal components of the WM and CSF signals
 
-This script checks for motion outliers in the specified bold fmri files and outputs
-a cofound.txt file that can be used for motion scrubbing when modelling the data. If no motion outliers
-are detected, the outputed confound.txt should be empty.
-
-The script takes three arguments:
-
-    * participant code (-s, e.g. "SF1")
-    * scanning session (-t, e.g "pre", "post" or "postpost")
-    * scan type (-f, e.g. "bodyloc", "rest" or "block")
-
-The script looks for the bold files in /vols/Data/soma/6Finger/{participant code}/{scaning session}/func
-folder.
+This script calculates the first five eigenvectors of unsmoothed resting state time series underlying the WM and CSF masks.
 """
 
-import glob
-import os
-import sys
-from optparse import OptionParser
+import numpy as np
+import pandas as pd
+from scipy import signal
+import nipype
+import nipype.algorithms.confounds as pca
 
-parser = OptionParser(description="Check for motion outliers")
-parser.add_option("-s", "--subj", dest="subj", action="store", metavar="SUBJ")
-parser.add_option("-t", "--time", dest="session", action="store", metavar="SESSION")
-parser.add_option("-f", "--type", dest="type", action="store", metavar="TYPE")
+subjects=['SF1', 'SF2', 'SF3', 'SF4', 'SF5', 'SF6', 'SF7', 'SF8', 'SF11', 'SF12', 'SF13', 'SF14', 'SF15', 'SF16', 'SF17', 'SF19', 'SF21', 'SF22', 'SF23', 'SF24']
+sessions=['pre', 'post']
+
+# White matter
+for sub in subjects:
+
+    for ses in sessions:
     
-(options, args) = parser.parse_args()
+    wma = pca.CompCor()
+    wma.inputs.realigned_file = '/vols/Data/soma/6Finger/{}/{}/model/rest-init.feat/filtered_func_data.nii.gz'.format(sub,ses)
+    wma.inputs.mask_files = '/vols/Data/soma/6Finger/{}/masks/WMmask_rest_bin.nii.gz'.format(sub)
+    wma.inputs.num_components = 5
+    wma.inputs.pre_filter = 'polynomial'
+    wma.inputs.regress_poly_degree = 2
+    wma.inputs.components_file = '/vols/Data/soma/6Finger/{}/{}/masks/{}_{}_WM_compcor.txt'.format(sub,ses,sub,ses)
+    wma.run()
 
-path = '/vols/Data/soma/6Finger/%s/%s'%(options.subj, options.session)
-if type == "rest":
-    bold_files = glob.glob('%s/func/%s_%s_rest.nii.gz'%(path, options.subj, options.session))
-elif type == "bodyloc":
-    bold_files = glob.glob('%s/func/%s_%s_bodyloc.nii.gz'%(path, options.subj, options.session))
-else:
-    bold_files = glob.glob('%s/func/%s_%s_block[1-4].nii.gz'%(path, options.subj, options.session))
+# Cerebrospinal fluid
+for sub in subjects:
 
-for bold in list(bold_files):
-    print(bold)
-    out_dir = os.path.dirname(bold)
-    # strip off .nii.gz from file name
-    bold_name = bold.split('/')[-1][:-7]
-
-    # Assessing motion
-    if os.path.isdir("%s/motion_assess/"%(out_dir))==False:
-        os.system("mkdir %s/motion_assess"%(out_dir))
-    os.system("fsl_motion_outliers -i %s -o %s/motion_assess/confound_%s.txt --fd --thresh=0.9 -p %s/motion_assess/fd_plot_%s -v > %s/motion_assess/outlier_output_%s.txt"%(bold, out_dir, bold_name, out_dir, bold_name, out_dir, bold_name))
-
-    # If no motion scrubbing is needed, create an empty file
-    if os.path.isfile("%s/motion_assess/confound_%s.txt"%(out_dir, bold_name))==False:
-      os.system("touch %s/motion_assess/confound_%s.txt"%(out_dir, bold_name))
-
-
-
-
+    for ses in sessions:
+    
+        cma = pca.CompCor()
+        cma.inputs.realigned_file = '/vols/Data/soma/6Finger/{}/{}/model/rest-init.feat/filtered_func_data.nii.gz'.format(sub,ses)
+        cma.inputs.mask_files = '/vols/Data/soma/6Finger/{}/masks/CSFmask_rest_bin.nii.gz'.format(sub)
+        cma.inputs.num_components = 5
+        cma.inputs.pre_filter = 'polynomial'
+        cma.inputs.regress_poly_degree = 2
+        cma.inputs.components_file = '/vols/Data/soma/6Finger/{}/{}/masks/{}_{}_CSF_compcor.txt'.format(sub,ses,sub,ses)
+        cma.run()
