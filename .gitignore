@@ -1,2 +1,9 @@
 assets/
+private/
+**/private/
 .DS_Store
+**/force-keyboards
+**/.ipynb_checkpoints/
+data-acquisition/cyberglove
+**/assets/
+arduino/
